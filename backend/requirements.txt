@@ -1,0 +1,32 @@
+# backend/requirements.txt
+#
+# CONCEPT: Dependency Management
+# Pin versions with == to ensure reproducible installs.
+# Use >= only if you need "at least this version" flexibility.
+
+# ── Web Framework ─────────────────────────────────────────────────────────────
+fastapi==0.115.0          # The web framework
+uvicorn[standard]==0.30.6 # ASGI server that runs FastAPI
+                          # [standard] includes extras: watchfiles (auto-reload), 
+                          # httptools (faster HTTP parsing)
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy==2.0.36        # ORM (Object Relational Mapper) — maps Python classes to DB tables
+asyncpg==0.30.0           # Async PostgreSQL driver (SQLAlchemy uses this under the hood)
+alembic==1.14.0           # Database migrations — tracks schema changes over time
+
+# ── Data Validation ──────────────────────────────────────────────────────────
+pydantic==2.9.2           # Data validation using Python type hints
+pydantic-settings==2.6.1  # Read config from .env files (our Settings class)
+
+# ── AI ────────────────────────────────────────────────────────────────────────
+google-generativeai==0.8.3  # Gemini API client
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1      # Load .env file into environment variables
+python-multipart==0.0.12  # Required for FastAPI file uploads / form data
+httpx==0.28.1             # Async HTTP client (for calling external APIs)
+
+# ── Development only ──────────────────────────────────────────────────────────
+pytest==8.3.3             # Test framework
+pytest-asyncio==0.24.0    # Async test support

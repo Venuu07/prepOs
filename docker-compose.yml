@@ -1,0 +1,52 @@
+# docker-compose.yml
+
+
+version: "3.9"
+
+services:
+  # ─── PostgreSQL Database ─────────────────────────────────────────────────────
+  db:
+    # "image" means: pull this pre-built container from Docker Hub.
+    # postgres:15 is a specific version of the official PostgreSQL image.
+    # Pinning the version (15) instead of "latest" prevents surprise breakage.
+    image: postgres:15
+
+    # Container name — lets you reference this service by name in other containers.
+    container_name: prepos_db
+
+    # "restart: unless-stopped" means:
+    # If the container crashes, Docker restarts it automatically.
+    # Only stops if you explicitly run "docker-compose down".
+    restart: unless-stopped
+
+    # Environment variables configure PostgreSQL on first start.
+    # These are the credentials your backend will use to connect.
+    environment:
+      POSTGRES_USER: prepos_user
+      POSTGRES_PASSWORD: prepos_password
+      POSTGRES_DB: prepos_db
+
+    # Port mapping: "host_port:container_port"
+    # PostgreSQL runs on port 5432 inside the container.
+    # We map it to 5432 on your machine so you can connect from outside Docker too.
+    ports:
+      - "5432:5432"
+
+    # Volumes persist data across container restarts.
+    # Without this, every "docker-compose down" would wipe your database.
+    # "postgres_data" is a named volume — Docker manages where it actually lives.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # Health check: Docker will ping the database every 5 seconds.
+    # Other services can declare they depend on db being "healthy" before starting.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prepos_user -d prepos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+# ─── Named Volumes ──────────────────────────────────────────────────────────────
+# Declaring the volume here tells Docker to create and manage it.
+volumes:
+  postgres_data:
