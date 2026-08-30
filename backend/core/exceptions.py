@@ -1,21 +1,4 @@
 # backend/core/exceptions.py
-#
-# CONCEPT: Custom Exception Hierarchy
-#
-# Python lets you create custom exception classes by inheriting from Exception.
-# Why bother?
-#
-# 1. PRECISION: You can catch a specific error type, not just "any exception."
-#    try: ...
-#    except NotFoundError: return 404  ← You know exactly what went wrong
-#    except ValidationError: return 422
-#
-# 2. HTTP MAPPING: Each exception maps to an HTTP status code.
-#    This lets FastAPI automatically return the right status when an exception
-#    is raised, rather than always returning 500 Internal Server Error.
-#
-# 3. READABILITY: raise NotFoundError("Problem not found") is 10x clearer
-#    than raise Exception("Error: the thing you wanted was not found somewhere")
 
 
 class PrepOSError(Exception):
@@ -27,7 +10,7 @@ class PrepOSError(Exception):
     def __init__(self, message: str, status_code: int = 500):
         self.message = message
         self.status_code = status_code
-        super().__init__(message)  # Call parent Exception.__init__
+        super().__init__(message)  
 
 
 class NotFoundError(PrepOSError):

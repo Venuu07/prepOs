@@ -1,5 +1,5 @@
 # backend/main.py
-#
+#uvicorn backend.main:app --reload
 
 
 from contextlib import asynccontextmanager
