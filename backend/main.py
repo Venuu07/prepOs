@@ -20,7 +20,7 @@ from backend.database.session import engine
 async def lifespan(app: FastAPI):
     # ── STARTUP ──────────────────────────────────────────────────────────────
     settings = get_settings()
-    print(f"🚀 {settings.app_name} v{settings.app_version} starting up...")
+    print(f"[START] {settings.app_name} v{settings.app_version} starting up...")
     print(f"   Debug mode: {settings.debug}")
 
     # The async engine creates the connection pool lazily on first use,
@@ -29,11 +29,12 @@ async def lifespan(app: FastAPI):
     try:
         async with engine.connect() as conn:
             # Use text() for a raw SQL ping query
+            # pyrefly: ignore [missing-import]
             from sqlalchemy import text
             await conn.execute(text("SELECT 1"))
-        print("   Database: ✅ connection pool initialized")
+        print("   Database: [OK] connection pool initialized")
     except Exception as e:
-        print(f"   Database: ❌ connection failed: {e}")
+        print(f"   Database: [FAIL] connection failed: {e}")
         print("   Is PostgreSQL running? Try: docker-compose up -d")
         # Don't raise here — let the server start even if DB is unreachable.
         # Individual requests will fail with a proper error.
@@ -41,7 +42,7 @@ async def lifespan(app: FastAPI):
     yield  # ← Server is running. Handling requests.
 
     # ── SHUTDOWN ─────────────────────────────────────────────────────────────
-    print("🛑 PrepOS shutting down...")
+    print("[STOP] PrepOS shutting down...")
     # Close the connection pool — waits for active connections to finish.
     await engine.dispose()
     print("   Database: connection pool closed.")
