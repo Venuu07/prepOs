@@ -141,10 +141,16 @@ class User(Base):
         "Problem",
         back_populates="user",
         cascade="all, delete-orphan",
-        # cascade="all, delete-orphan" means:
-        #   - "all": propagate save, merge, expunge operations
-        #   - "delete-orphan": if you remove a problem from user.problems,
-        #     delete it from the DB (it's "orphaned" — not owned by anyone)
+    )
+    goals: Mapped[list["Goal"]] = relationship(
+        "Goal",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    revisions: Mapped[list["Revision"]] = relationship(
+        "Revision",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

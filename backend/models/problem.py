@@ -44,6 +44,7 @@
 import enum
 from datetime import datetime, date
 from typing import Optional
+# pyrefly: ignore [missing-import]
 from sqlalchemy import (
     String, Text, DateTime, Date, ForeignKey,
     Integer, Boolean, SmallInteger
@@ -120,6 +121,7 @@ class Problem(Base):
         index=True,
         comment="Which user is tracking this problem"
     )
+    
     topic_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("topics.id", ondelete="SET NULL"),
         nullable=True,
