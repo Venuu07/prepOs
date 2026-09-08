@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from backend.core.config import get_settings
 from backend.core.exceptions import PrepOSError
 from backend.database.session import engine
+from backend.api.v1 import subjects as subjects_router
 
 
 
@@ -89,6 +90,13 @@ async def prepos_exception_handler(request: Request, exc: PrepOSError):
         },
     )
 
+
+# ── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(
+    subjects_router.router,
+    prefix="/api/v1/subjects",
+    tags=["Subjects"],
+)
 
 
 @app.get("/health", tags=["System"])

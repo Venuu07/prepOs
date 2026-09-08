@@ -1,38 +1,5 @@
 # backend/models/user.py
-#
-# CONCEPT: SQLAlchemy Model with Mapped[] Annotations (SQLAlchemy 2.0 style)
-#
-# Old SQLAlchemy (<2.0):
-#   class User(Base):
-#       id = Column(Integer, primary_key=True)
-#       email = Column(String, nullable=False)
-#
-# New SQLAlchemy (2.0+):
-#   class User(Base):
-#       id: Mapped[int] = mapped_column(primary_key=True)
-#       email: Mapped[str] = mapped_column(nullable=False)
-#
-# The new style uses Python type annotations (Mapped[int]).
-# Benefits:
-#   1. Type checkers (mypy, pyright) understand the types → better IDE support.
-#   2. Mapped[Optional[str]] automatically sets nullable=True in the DB column.
-#   3. Mapped[str] (non-optional) automatically means nullable=False.
-#   4. The code reads more like regular Python, not magic Column() calls.
-#
-# CONCEPT: Enums in SQLAlchemy
-# We define Python Enum classes and store their values as strings in PostgreSQL.
-# This gives us:
-#   - Type safety in Python (can only assign valid enum values)
-#   - Readable values in the database ("ACTIVE" not "1")
-#   - Easy validation in Pydantic schemas
-#
-# CONCEPT: server_default vs default
-#   - default: Python-side default, computed BEFORE the SQL INSERT
-#   - server_default: a SQL expression that PostgreSQL evaluates
-#                     (e.g., "CURRENT_TIMESTAMP" runs in the DB itself)
-# For timestamps, server_default="CURRENT_TIMESTAMP" means the DB sets the
-# time — useful if your app server clock and DB clock drift differently.
-# For uuid generation, we generate on the Python side (uuid4).
+
 
 import enum
 from datetime import datetime
