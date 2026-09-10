@@ -29,7 +29,7 @@ from sqlalchemy.sql import func
 from backend.database.base import Base
 
 
-class Subject(Base):
+class         Subject(Base):
     """
     A top-level academic subject.
 
