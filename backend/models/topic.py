@@ -144,11 +144,15 @@ class Topic(Base):
     subject: Mapped["Subject"] = relationship(
         "Subject",
         back_populates="topics"
-        # No cascade here — loading a topic shouldn't cascade to its subject.
     )
 
     problems: Mapped[list["Problem"]] = relationship(
         "Problem",
+        back_populates="topic",
+        cascade="all, delete-orphan",
+    )
+    revisions: Mapped[list["Revision"]] = relationship(
+        "Revision",
         back_populates="topic",
         cascade="all, delete-orphan",
     )

@@ -54,7 +54,7 @@ class Goal(Base):
     Examples:
         "Crack EPAM SDE placement by Oct 15"
         "Complete DSA revision before college resumes"
-        "GATE 2025 preparation"
+        "GATE 2027 preparation"
 
     The AI planning agent uses goals as its primary input:
         goal.target_date → urgency (days remaining)
