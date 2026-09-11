@@ -1,5 +1,6 @@
 # backend/api/v1/goals.py
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 

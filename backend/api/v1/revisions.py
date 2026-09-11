@@ -1,6 +1,8 @@
 # backend/api/v1/revisions.py
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, status
+# pyrefly: ignore [missing-import]
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import get_db
