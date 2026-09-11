@@ -11,7 +11,9 @@
 # If a rule changes (e.g. "subjects must have a short_code"), you change the
 # SERVICE — the router stays untouched.
 
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, status
+# pyrefly: ignore [missing-import]
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import get_db
