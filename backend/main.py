@@ -1,4 +1,4 @@
-# backend/main.py
+﻿# backend/main.py
 #uvicorn backend.main:app --reload
 
 
@@ -18,12 +18,13 @@ from backend.api.v1 import topics as topics_router
 from backend.api.v1 import problems as problems_router
 from backend.api.v1 import goals as goals_router
 from backend.api.v1 import revisions as revisions_router
+from backend.api.v1 import agent as agent_router
 
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ── STARTUP ──────────────────────────────────────────────────────────────
+    # â”€â”€ STARTUP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     settings = get_settings()
     print(f"[START] {settings.app_name} v{settings.app_version} starting up...")
     print(f"   Debug mode: {settings.debug}")
@@ -41,20 +42,20 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"   Database: [FAIL] connection failed: {e}")
         print("   Is PostgreSQL running? Try: docker-compose up -d")
-        # Don't raise here — let the server start even if DB is unreachable.
+        # Don't raise here â€” let the server start even if DB is unreachable.
         # Individual requests will fail with a proper error.
 
-    yield  # ← Server is running. Handling requests.
+    yield  # â† Server is running. Handling requests.
 
-    # ── SHUTDOWN ─────────────────────────────────────────────────────────────
+    # â”€â”€ SHUTDOWN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     print("[STOP] PrepOS shutting down...")
-    # Close the connection pool — waits for active connections to finish.
+    # Close the connection pool â€” waits for active connections to finish.
     await engine.dispose()
     print("   Database: connection pool closed.")
 
 
 
-# ── FastAPI App ───────────────────────────────────────────────────────────────
+# â”€â”€ FastAPI App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 settings = get_settings()
@@ -62,7 +63,7 @@ settings = get_settings()
 app = FastAPI(
     title=settings.app_name,
     description="""
-PrepOS — AI-Native Preparation Intelligence Platform
+PrepOS â€” AI-Native Preparation Intelligence Platform
 
 An agentic AI system for intelligent preparation planning across
 DSA, Core CS, GATE, and company-specific interview preparation.
@@ -95,12 +96,13 @@ async def prepos_exception_handler(request: Request, exc: PrepOSError):
     )
 
 
-# ── Routers ───────────────────────────────────────────────────────────────────
+# â”€â”€ Routers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.include_router(subjects_router.router,  prefix="/api/v1/subjects",  tags=["Subjects"])
 app.include_router(topics_router.router,    prefix="/api/v1/topics",    tags=["Topics"])
 app.include_router(problems_router.router,  prefix="/api/v1/problems",  tags=["Problems"])
 app.include_router(goals_router.router,     prefix="/api/v1/goals",     tags=["Goals"])
 app.include_router(revisions_router.router, prefix="/api/v1/revisions", tags=["Revisions"])
+app.include_router(agent_router.router,     prefix="/api/v1/agent",     tags=["Agent"])
 
 
 @app.get("/health", tags=["System"])
@@ -118,9 +120,11 @@ async def health_check():
 
 @app.get("/", tags=["System"])
 async def root():
-    """Root endpoint — confirms the API is reachable."""
+    """Root endpoint â€” confirms the API is reachable."""
     return {
         "message": "Welcome to PrepOS API",
         "docs": "/docs",
         "health": "/health",
     }
+
+
