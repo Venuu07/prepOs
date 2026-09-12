@@ -1,28 +1,13 @@
 ﻿# backend/api/v1/agent.py
-#
-# WHAT: The FastAPI endpoint that triggers the agent loop.
-# WHY IT IS THIN: The endpoint does only three things:
-#   1. Parse the incoming JSON request
-#   2. Call run_agent() (the actual logic lives in ai/agent.py)
-#   3. Return the result as JSON
-#
-# FASTAPI CONCEPT: Depends(get_db) for database sessions
-#   The db session is injected by FastAPI automatically.
-#   The agent receives the session and passes it to tools.
-#   The session is committed/rolled back by get_db() after the request.
-#
-# NOTE ON USER_ID:
-#   Stage 1 uses a hardcoded DEV_USER_ID=1 (defined in agent.py).
-#   This is intentional and documented. Authentication is Stage 3.
-#   To test, create a user with id=1 in your database first.
+# Stage 2: Response now includes optional plan_id when a plan was created.
 
+from typing import Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import get_db
-from backend.ai.agent import run_agent, ToolCallRecord
-from backend.core.exceptions import AIServiceError
+from backend.ai.agent import run_agent
 
 router = APIRouter()
 
@@ -42,6 +27,7 @@ class ToolCallSummary(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     tool_calls: list[ToolCallSummary]
+    plan_id: Optional[int] = None  # Set when create_study_plan succeeded
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -50,19 +36,23 @@ async def chat(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Send a message to the PrepPilot AI agent.
+    Send a message to the PrepPilot AI planning agent.
 
-    The agent will:
-    1. Decide whether it needs to call any tools (get_user_progress, get_weak_topics)
-    2. Execute the tools against the real database
-    3. Use the results to generate a contextual response
+    The agent supports two modes:
+    - Q&A mode: "How am I doing?" / "What topics am I weak at?"
+    - Planning mode: "Create a 7-day study plan for my interview"
 
-    **Stage 1 limitation**: Uses a hardcoded user_id=1. Add data for that user first.
+    In planning mode the agent will:
+    1. Fetch progress, weak topics, goals, and pending revisions
+    2. Generate a structured study plan
+    3. Validate it (hours, task durations, day numbers)
+    4. Persist it to the database
+    5. Return a human-readable confirmation with plan_id
 
-    Example requests:
-    - "How am I doing in DSA?"
-    - "What topics am I weak at?"
-    - "What is dynamic programming?" (no tool call needed)
+    Stage 2 limitation: uses hardcoded user_id=1. Auth comes in Stage 3.
+
+    Example planning request:
+    {"message": "I have an interview in 7 days, 3 hours per day. Create a plan."}
     """
     result = await run_agent(user_message=body.message, db=db)
 
@@ -78,4 +68,5 @@ async def chat(
             )
             for tc in result.tool_calls
         ],
+        plan_id=result.plan_id,
     )

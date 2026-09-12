@@ -1,4 +1,4 @@
-# backend/models/user.py
+﻿# backend/models/user.py
 
 
 import enum
@@ -15,7 +15,7 @@ class UserStatus(str, enum.Enum):
     """
     Whether the user account is active or deactivated.
     str + enum.Enum means the enum VALUE is a string.
-    This lets us do: UserStatus.ACTIVE == "ACTIVE" → True
+    This lets us do: UserStatus.ACTIVE == "ACTIVE" â†’ True
     Very useful for comparisons and serialization.
     """
     ACTIVE = "ACTIVE"
@@ -44,20 +44,20 @@ class User(Base):
     - Agent Runs (history of AI agent interactions)
 
     We use relationship() to define these ORM-level connections.
-    SQLAlchemy doesn't auto-fetch related objects — you must explicitly
+    SQLAlchemy doesn't auto-fetch related objects â€” you must explicitly
     joinedload() or selectinload() them. This is intentional: it prevents
     accidental N+1 query problems.
     """
     __tablename__ = "users"
 
-    # ── Primary Key ──────────────────────────────────────────────────────────
-    # autoincrement=True is the default for Integer PKs — PostgreSQL uses SERIAL.
+    # â”€â”€ Primary Key â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # autoincrement=True is the default for Integer PKs â€” PostgreSQL uses SERIAL.
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    # ── Identity ─────────────────────────────────────────────────────────────
-    # unique=True → PostgreSQL creates a UNIQUE INDEX on this column.
-    # index=True → Creates a regular B-tree index for fast lookups by email.
-    # Mapped[str] (non-Optional) → nullable=False in the DB.
+    # â”€â”€ Identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # unique=True â†’ PostgreSQL creates a UNIQUE INDEX on this column.
+    # index=True â†’ Creates a regular B-tree index for fast lookups by email.
+    # Mapped[str] (non-Optional) â†’ nullable=False in the DB.
     email: Mapped[str] = mapped_column(
         String(255),
         unique=True,
@@ -71,8 +71,8 @@ class User(Base):
         comment="Display name"
     )
 
-    # ── Auth ─────────────────────────────────────────────────────────────────
-    # Optional[str] → nullable=True. We store the bcrypt hash, not the password.
+    # â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Optional[str] â†’ nullable=True. We store the bcrypt hash, not the password.
     # Bcrypt output is always 60 chars, but String(255) gives us room.
     hashed_password: Mapped[Optional[str]] = mapped_column(
         String(255),
@@ -80,7 +80,7 @@ class User(Base):
         comment="bcrypt hash. Never store plaintext passwords."
     )
 
-    # ── Profile ──────────────────────────────────────────────────────────────
+    # â”€â”€ Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # These are optional fields the user can fill in over time.
     target_role: Mapped[Optional[str]] = mapped_column(
         String(100),
@@ -97,9 +97,9 @@ class User(Base):
         comment="Expected graduation year"
     )
 
-    # ── Status ───────────────────────────────────────────────────────────────
+    # â”€â”€ Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # SAEnum maps our Python enum to a PostgreSQL CHECK constraint.
-    # native_enum=False → stores as VARCHAR, not a PostgreSQL ENUM type.
+    # native_enum=False â†’ stores as VARCHAR, not a PostgreSQL ENUM type.
     # VARCHAR is more flexible (easier to add new values without migrations).
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -109,10 +109,10 @@ class User(Base):
         comment="False for soft-deleted or banned accounts"
     )
 
-    # ── Timestamps ───────────────────────────────────────────────────────────
+    # â”€â”€ Timestamps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # func.now() is a SQLAlchemy expression for CURRENT_TIMESTAMP.
-    # server_default means PostgreSQL sets this — the Python app doesn't need to.
-    # onupdate=func.now() → every UPDATE statement automatically sets updated_at.
+    # server_default means PostgreSQL sets this â€” the Python app doesn't need to.
+    # onupdate=func.now() â†’ every UPDATE statement automatically sets updated_at.
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -127,11 +127,11 @@ class User(Base):
         comment="Last modification timestamp (UTC)"
     )
 
-    # ── ORM Relationships ─────────────────────────────────────────────────────
+    # â”€â”€ ORM Relationships â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # CONCEPT: Relationships
     # relationship() tells SQLAlchemy: "This model is connected to another model."
     # back_populates="user" means the other model has a .user attribute pointing back.
-    # This is bidirectional: user.problems → list of problems, problem.user → the user.
+    # This is bidirectional: user.problems â†’ list of problems, problem.user â†’ the user.
     #
     # lazy="select" (default) means: DON'T load problems when loading a user.
     # Only fetch when you explicitly access user.problems.
@@ -152,7 +152,13 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    study_plans: Mapped[list["StudyPlan"]] = relationship(
+        "StudyPlan",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         """String representation for debugging."""
         return f"<User id={self.id} email={self.email!r}>"
+

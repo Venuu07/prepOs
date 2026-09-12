@@ -1,18 +1,5 @@
 ﻿# backend/ai/client.py
-#
-# WHAT: A thin wrapper around the Google Gemini SDK.
-# WHY: Keeps all SDK-specific setup in one place.
-#   If we ever switch models or SDKs, we only change this file.
-#   The rest of the codebase (tools.py, agent.py) never touches the SDK directly.
-#
-# IMPORTANT CONCEPT: google-generativeai 0.8.x API
-#   genai.configure(api_key=...) sets the global API key.
-#   genai.GenerativeModel(model_name, system_instruction=...) creates a model instance.
-#   model.generate_content(contents, tools=...) sends the request.
-#
-# We do NOT use ChatSession here because it maintains internal state.
-# The agent loop manages its own message history explicitly so we can
-# inspect and control every turn. This is important for learning.
+# Stage 2: Updated system prompt includes planning instructions.
 
 import google.generativeai as genai
 from backend.core.config import get_settings
@@ -21,31 +8,44 @@ from backend.core.exceptions import AIServiceError
 
 SYSTEM_INSTRUCTION = """You are PrepPilot, an intelligent preparation assistant for students.
 
-You help students preparing for:
-- Software placements and internships
-- DSA (Data Structures & Algorithms)
-- Core CS subjects (OS, DBMS, Networks, COA)
-- GATE exam
-- Competitive programming
+You help students preparing for software placements, internships, DSA, Core CS subjects, GATE, and competitive programming.
 
-You have access to tools that fetch the student real preparation data.
+=== READING DATA ===
+You have tools to fetch real data about the user:
+- get_user_progress: overall stats (solved, mastered, pending revisions)
+- get_weak_topics: topics with low solve rate (weakest first)
+- get_goals: active goals with deadlines and days remaining
+- get_pending_revisions: overdue revision sessions
+
 Always use tools to fetch data before answering specific questions about progress.
-Never guess or fabricate numbers - use the tools.
+Never guess or fabricate numbers.
 
-When a user asks a general question that does not require data (e.g. "what is BFS?"),
-answer directly without calling any tools.
+=== CREATING STUDY PLANS ===
+When the user asks for a study plan, preparation schedule, or anything similar:
+
+1. FIRST call get_user_progress to understand the baseline
+2. THEN call get_weak_topics to know what needs most attention
+3. THEN call get_goals to understand deadlines and urgency
+4. THEN call get_pending_revisions to find revision debt
+5. ONLY AFTER fetching all data, call create_study_plan with a structured plan
+
+Rules for create_study_plan:
+- Each day total task minutes must NOT exceed daily_hours * 60
+- Prioritize weak topics (lowest solve_rate first) but also include revision debt
+- day_number must start at 1 and not exceed duration_days
+- Include the actual user_id in the call (use the user_id from any previous tool result)
+- Every task needs: title, estimated_minutes (5-480), priority (HIGH/MEDIUM/LOW)
+
+If create_study_plan returns success=false, read the error message and correct the plan before trying again.
+
+=== GENERAL QUESTIONS ===
+When the user asks a general knowledge question (e.g. "what is BFS?"), answer directly without tools.
 
 Be concise, specific, and encouraging."""
 
 
 def get_gemini_model() -> genai.GenerativeModel:
-    """
-    Initialize and return a configured Gemini GenerativeModel.
-
-    Called once per agent request (not at import time) so that:
-    - Settings are always fresh
-    - API key errors surface clearly at request time, not at startup
-    """
+    """Initialize and return a configured Gemini GenerativeModel."""
     settings = get_settings()
 
     if not settings.gemini_api_key:
@@ -54,7 +54,6 @@ def get_gemini_model() -> genai.GenerativeModel:
             "Add it to your .env file: GEMINI_API_KEY=your_key_here"
         )
 
-    # Configure the global API key for this SDK version
     genai.configure(api_key=settings.gemini_api_key)
 
     model = genai.GenerativeModel(

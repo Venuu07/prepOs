@@ -1,36 +1,21 @@
 ﻿# backend/ai/agent.py
 #
-# WHAT: The agent loop. This is the core of Stage 1.
-# WHY: The agent is what makes this "agentic" rather than a simple LLM call.
-#   It loops, detects tool calls, executes them, and feeds results back.
+# Stage 2: Extended agent loop that supports planning (write tools).
 #
-# THE LOOP (simplified):
-#   messages = [user_message]
-#   while not done:
-#       response = gemini(messages, tools)
-#       if response wants a tool:
-#           result = execute_tool(tool_name, tool_args)
-#           messages.append(model_turn)
-#           messages.append(tool_result)
-#       else:
-#           return response.text   <-- done
+# Key changes from Stage 1:
+#   1. MAX_TOOL_CALLS increased to 8 (planning needs 4 reads + 1 write)
+#   2. AgentResult now includes an optional plan_id
+#   3. Write tool failures are captured and returned gracefully
+#   4. user_id is always injected from DEV_USER_ID for all tools
 #
-# CONCEPT: Why do we manually manage messages instead of using ChatSession?
-#   ChatSession is a convenience wrapper that hides the message list.
-#   For learning, we manage messages ourselves so you can see every turn.
-#   In production, you might use ChatSession, but understanding the raw
-#   message structure is essential before using abstractions.
-#
-# CONCEPT: google.generativeai function calling format
-#   When Gemini wants a tool, response.candidates[0].content.parts[0]
-#   has a .function_call attribute with .name and .args.
-#   When we return a result, we create a Part with .function_response.
-#   Both the model turn and the tool result are added to messages.
+# The agent loop itself is UNCHANGED from Stage 1.
+# This demonstrates the key insight: the loop is generic.
+# Adding new tools (even write tools) does not change the loop.
+# Only TOOL_FUNCTIONS and TOOL_SCHEMA change.
 
-import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 import google.generativeai as genai
 
@@ -40,11 +25,10 @@ from backend.core.exceptions import AIServiceError
 
 logger = logging.getLogger(__name__)
 
-# Safety limit: stop after this many tool calls to prevent infinite loops
-MAX_TOOL_CALLS = 5
+# Planning requires more tool calls: 4 reads + 1 write + possible retry
+MAX_TOOL_CALLS = 8
 
-# Hardcoded dev user ID for Stage 1 (no auth yet)
-# IMPORTANT: In Stage 2, this will come from an auth token
+# Hardcoded dev user ID — no auth yet (Stage 3)
 DEV_USER_ID = 1
 
 
@@ -58,39 +42,29 @@ class ToolCallRecord:
     error: str = ""
 
 
-@dataclass  
+@dataclass
 class AgentResult:
     """The final result from a complete agent run."""
     response: str
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
+    plan_id: Optional[int] = None  # Set if create_study_plan was called successfully
 
 
 async def run_agent(user_message: str, db: AsyncSession) -> AgentResult:
     """
     Run the agent loop for a single user message.
 
-    This is the main entry point called by the FastAPI endpoint.
-    
-    Args:
-        user_message: The user natural-language question
-        db: SQLAlchemy async session for database access
-    
-    Returns:
-        AgentResult with the final response and a log of tool calls made
+    The loop is identical to Stage 1. The difference is in TOOL_FUNCTIONS:
+    it now includes get_goals, get_pending_revisions, and create_study_plan.
+
+    The model decides which tools to call. The loop executes them.
     """
     model = get_gemini_model()
     tool_call_records: list[ToolCallRecord] = []
+    created_plan_id: Optional[int] = None
 
-    # ── Build initial messages list ──────────────────────────────────────────
-    # CONCEPT: Messages are the conversation history sent to the model.
-    # We start with just the user message.
-    # As the agent loop runs, we append model turns and tool results.
-    # The full history is resent on every API call (LLMs are stateless).
-    messages = [
-        {"role": "user", "parts": [user_message]}
-    ]
+    messages = [{"role": "user", "parts": [user_message]}]
 
-    # ── Agent loop ───────────────────────────────────────────────────────────
     for iteration in range(MAX_TOOL_CALLS + 1):
 
         if iteration == MAX_TOOL_CALLS:
@@ -100,10 +74,6 @@ async def run_agent(user_message: str, db: AsyncSession) -> AgentResult:
             )
 
         # ── Call Gemini ──────────────────────────────────────────────────────
-        # Send the full message history + available tool schemas.
-        # The model reads the messages and tool descriptions, then decides:
-        #   Option A: Call a tool and return a function_call
-        #   Option B: Give a final text answer
         try:
             response = model.generate_content(
                 contents=messages,
@@ -112,54 +82,54 @@ async def run_agent(user_message: str, db: AsyncSession) -> AgentResult:
         except Exception as e:
             raise AIServiceError(f"Gemini API error: {str(e)}")
 
-        # ── Inspect the response ─────────────────────────────────────────────
-        # CONCEPT: Checking for function_call vs text
-        # The response has candidates[0].content.parts — a list of parts.
-        # Each part is either a text part or a function_call part.
-        # We check for function_call first.
         candidate = response.candidates[0]
         parts = candidate.content.parts
 
-        # Find any function_call in the parts
+        # ── Detect function_call ─────────────────────────────────────────────
         function_call_part = None
         for part in parts:
             if hasattr(part, "function_call") and part.function_call.name:
                 function_call_part = part
                 break
 
-        # ── Option A: Model requested a tool ────────────────────────────────
+        # ── Option A: Tool requested ─────────────────────────────────────────
         if function_call_part is not None:
             fc = function_call_part.function_call
             tool_name = fc.name
-            # fc.args is a MapComposite (proto map) — convert to plain dict
             tool_args = dict(fc.args)
 
-            logger.info(f"[Agent] Tool call requested: {tool_name}({tool_args})")
+            logger.info(f"[Agent] Tool call: {tool_name}({tool_args})")
 
-            # ── Execute the tool ─────────────────────────────────────────────
-            # CONCEPT: Dispatch table
-            # We look up the function by name in TOOL_FUNCTIONS dict.
-            # If the model hallucinates a tool name, we catch it here.
+            # Safety: reject unknown tool names
             if tool_name not in TOOL_FUNCTIONS:
                 raise AIServiceError(
                     f"Model requested unknown tool: '{tool_name}'. "
-                    f"Available tools: {list(TOOL_FUNCTIONS.keys())}"
+                    f"Allowed tools: {list(TOOL_FUNCTIONS.keys())}"
                 )
 
             tool_func = TOOL_FUNCTIONS[tool_name]
 
-            # Inject user_id if the tool expects it and it was not provided
-            # This is how we handle the "no auth yet" situation:
-            # the model might ask for user_id but we use the dev default.
-            if "user_id" not in tool_args:
-                tool_args["user_id"] = DEV_USER_ID
+            # Always inject user_id from the trusted server-side value
+            # The LLM may pass user_id but we override it — the client cannot
+            # be trusted to provide the correct user_id (security boundary)
+            tool_args["user_id"] = DEV_USER_ID
 
             try:
                 tool_result = await tool_func(db=db, **tool_args)
+
+                # If this was create_study_plan and it succeeded, capture the plan_id
+                if tool_name == "create_study_plan" and isinstance(tool_result, dict):
+                    if tool_result.get("success") and tool_result.get("plan_id"):
+                        created_plan_id = tool_result["plan_id"]
+
                 record = ToolCallRecord(
                     tool=tool_name,
-                    args=tool_args,
-                    result_summary=f"Returned {len(str(tool_result))} chars of data",
+                    args={k: v for k, v in tool_args.items() if k != "user_id"},
+                    result_summary=(
+                        f"plan_id={tool_result.get('plan_id')}, tasks={tool_result.get('tasks_created')}"
+                        if tool_name == "create_study_plan"
+                        else f"returned {len(str(tool_result))} chars"
+                    ),
                     success=True,
                 )
             except Exception as e:
@@ -175,23 +145,8 @@ async def run_agent(user_message: str, db: AsyncSession) -> AgentResult:
 
             tool_call_records.append(record)
 
-            # ── Add the model turn and tool result to message history ────────
-            # CONCEPT: Adding turns to messages
-            # After a tool call, we add TWO things to the messages list:
-            #
-            # 1. The model turn (what Gemini returned — the function_call)
-            #    This tells future model calls: "I previously requested this tool"
-            #
-            # 2. The function_response (our tool result)
-            #    This tells the model: "here is what the tool returned"
-            #
-            # Note: function_response parts are sent with role="user"
-            # This is the Gemini SDK convention. It looks odd but is correct.
-
-            # Add the model turn (preserves the function_call)
+            # Add model turn and tool result to message history
             messages.append(candidate.content)
-
-            # Add the tool result
             messages.append(
                 genai.protos.Content(
                     role="user",
@@ -205,25 +160,20 @@ async def run_agent(user_message: str, db: AsyncSession) -> AgentResult:
                     ]
                 )
             )
-
-            # Loop again — give the result back to the model
             continue
 
-        # ── Option B: Model gave a final text answer ─────────────────────────
-        # No function_call found — the model produced a plain text response.
-        # Extract the text and return it.
+        # ── Option B: Final text response ────────────────────────────────────
         try:
             final_text = response.text
         except Exception:
-            # response.text raises if the response was blocked or empty
             final_text = "I could not generate a response. Please try rephrasing."
 
-        logger.info(f"[Agent] Final response after {iteration} tool call(s)")
+        logger.info(f"[Agent] Finished after {iteration} tool call(s)")
 
         return AgentResult(
             response=final_text,
             tool_calls=tool_call_records,
+            plan_id=created_plan_id,
         )
 
-    # This line should be unreachable (the loop always returns or raises)
     raise AIServiceError("Unexpected agent loop exit")
